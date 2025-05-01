@@ -1,0 +1,3 @@
+[submodule "obmp-java-api-message"]
+	path = obmp-java-api-message
+	url = https://github.com/OpenBMP/obmp-java-api-message.git
