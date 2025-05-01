@@ -245,7 +245,7 @@ loop_rsyslog() {
 
 loop_cron() {
     while true; do
-        pgrep -x "cron" > /dev/null 2>&1
+        pgrep -x "crond" > /dev/null 2>&1
         if [[ $? != 0 ]]; then
             echo "===> Restarting cron service"
             cron
