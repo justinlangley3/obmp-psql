@@ -248,7 +248,7 @@ loop_cron() {
         pgrep -x "crond" > /dev/null 2>&1
         if [[ $? != 0 ]]; then
             echo "===> Restarting cron service"
-            cron
+            crond
         fi
         sleep 10
     done
