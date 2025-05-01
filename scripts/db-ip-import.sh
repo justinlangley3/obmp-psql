@@ -20,7 +20,7 @@ if [[ $? == 0 ]]; then
     echo "Running geo csv import script"
     /usr/local/openbmp/geo-csv-to-psql.py --db_ip_file /tmp/dbip.csv
 else
-    echo "ERROR: Failed to download dbip-city-lite-2022-06.csv.gz"
+    echo "ERROR: Failed to download dbip-city-lite-$(date "+%Y-%m").csv.gz"
     exit 1
 fi
 
