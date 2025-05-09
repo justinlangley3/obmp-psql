@@ -235,6 +235,8 @@ public class Config {
                                 kafka_consumer_props.setProperty(cEntry.getKey(), cEntry.getValue().toString());
                             }
 
+                            kafka_consumer_props.forEach((k, v) -> logger.info("Kafka Config: {} = {}", k, v));
+
                         }
 
                         else if (subEntry.getKey().equalsIgnoreCase("subscribe_topic_patterns")) {
