@@ -27,24 +27,31 @@ export PGCONNECT_TIMEOUT=15
 check_kafka() {
     echo "===> Performing Kafka check"
 
-    if [[ ${KAFKA_FQDN:-""} == "" ]]; then
+    if [[ -z "${KAFKA_FQDN:-}" ]]; then
        echo "ERROR: Missing ENV KAFKA_FQDN.  Cannot proceed until you add that in docker run -e KAFKA_FQDN=<...>"
        exit 1
-
     fi
 
     echo "===> Checking Kafka bootstrap server connection"
-    kcat -u -b $KAFKA_FQDN -L | grep broker
 
+    # Determine SSL usage
+    KAFKA_SSL_ENABLE=${KAFKA_SSL_ENABLE:-true}
+    if [[ "$KAFKA_SSL_ENABLE" == "true" ]]; then
+        KAFKA_SECURITY_OPTS="-X security.protocol=SSL -X ssl.ca.location=${KAFKA_SSL_CA:-/etc/openbmp/pki/openbmp_ca.pem}"
+    else
+        KAFKA_SECURITY_OPTS="-X security.protocol=PLAINTEXT"
+    fi
+
+    kcat $KAFKA_SECURITY_OPTS -u -b $KAFKA_FQDN -L | grep broker
     if [[ $? -ne 0 ]]; then
         echo "ERROR: Failed to connect to Kafka at $KAFKA_FQDN, check the docker run -e KAFKA_FQDN= value"
         exit 1
     fi
 
-    echo "testing" | timeout 5 kcat -b $KAFKA_FQDN -P -t openbmp.parsed.test
-    echo "===> Checking if we can successfully consume messages"
-    timeout 5 kcat -u -b $KAFKA_FQDN -C -c 1 -o beginning -t openbmp.parsed.test > /dev/null
+    echo "testing" | timeout 5 kcat $KAFKA_SECURITY_OPTS -b $KAFKA_FQDN -P -t openbmp.parsed.test
 
+    echo "===> Checking if we can successfully consume messages"
+    timeout 5 kcat $KAFKA_SECURITY_OPTS -u -b $KAFKA_FQDN -C -c 1 -o beginning -t openbmp.parsed.test > /dev/null
     if [[ $? -ne 0 ]]; then
         echo "ERROR: Failed to connect to Kafka broker, check the Kafka 'advertised.listeners' configuration."
         echo "       Advertised hostname must be reachable within the container. You can run this container"
@@ -53,6 +60,7 @@ check_kafka() {
         exit 1
     fi
 }
+
 
 
 # +++++++++++++++++++++++++++++++++++++++++++++++
