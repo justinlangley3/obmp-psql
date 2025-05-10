@@ -230,12 +230,11 @@ public class Config {
                              */
                             Map<String, Object> map = ((Map<String, Object>) subEntry.getValue());
 
+                            logger.info("Kafka Properties:");
                             for (Map.Entry<String, Object> cEntry : map.entrySet()) {
-                                logger.debug("kafka consumer config - key: %25s value: %s", cEntry.getKey(), cEntry.getValue());
+                                logger.info("  {}: {}", cEntry.getKey(), cEntry.getValue());
                                 kafka_consumer_props.setProperty(cEntry.getKey(), cEntry.getValue().toString());
                             }
-
-                            kafka_consumer_props.forEach((k, v) -> logger.info("Kafka Config: {} = {}", k, v));
 
                         }
 
