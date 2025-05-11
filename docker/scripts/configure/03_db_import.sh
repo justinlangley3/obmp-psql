@@ -2,7 +2,7 @@
 set -e
 
 if [[ ! -f /config/do_not_init_db ]]; then
-    echo "===> Initializing the database"
+    echo "===> Initializing the OpenBMP database"
 
     until psql -c "select 1;" &>/dev/null; do
         echo "    Waiting for Postgres..."
@@ -16,4 +16,6 @@ if [[ ! -f /config/do_not_init_db ]]; then
     done
 
     touch /config/do_not_init_db
+else
+    echo "===> OpenBMP database already initialized, skipping."
 fi

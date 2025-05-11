@@ -61,27 +61,34 @@ RUN apk update \
         kafkacat \
         logrotate \
         openjdk17-jre \
-        py3-dnspython \
+        postgresql16-client \
         py3-click \
+        py3-dnspython \
         py3-ipaddr \
         py3-netaddr \
         py3-pip \
         py3-psycopg2 \
         py3-requests \
         py3-urllib3 \
-        postgresql16-client \
         rsync \
         rsyslog \
-        whois \
         unzip \
+        whois \
     # clean package cache
     && rm -rf /var/cache/apk/*
 
 # Install extra Python dependencies
 RUN pip3 install --break-system-packages pykafka supervisor
 
-# Disable this rsyslog module -- containers have no /dev/log device
+# Disable unneeded rsyslog modules
 RUN sed -i '/module(load="imklog")/s/^/#/' /etc/rsyslog.conf
+RUN sed -i '/module(load="immark")/s/^/#/' /etc/rsyslog.conf
+
+# Ensure cron directories exist
+RUN mkdir -p /var/spool/cron/crontabs \
+    && chmod -R 600 /var/spool/cron/crontabs
+
+RUN touch /usr/local/version-${VERSION}
 
 # Copy build artifacts to runtime
 COPY --from=build /ws/target/obmp-psql-consumer-0.1.0-SNAPSHOT.jar /usr/local/openbmp/obmp-psql-consumer.jar
@@ -89,39 +96,18 @@ COPY --from=build /ws/database/  /usr/local/openbmp/database
 COPY --chmod=755 --from=build /ws/cron_scripts/gen-whois/*.py /usr/local/openbmp/
 COPY --chmod=755 --from=build /ws/cron_scripts/peeringdb/*.py /usr/local/openbmp/
 COPY --chmod=755 --from=build /ws/cron_scripts/rpki/*.py /usr/local/openbmp/
-COPY --chmod=755 --from=build /ws/scripts/geo-csv-to-psql.py /usr/local/openbmp/
 COPY --chmod=755 --from=build /ws/scripts/db-ip-import.sh /usr/local/openbmp/
-
-RUN touch /usr/local/version-${VERSION}
-
-# Ensure system directories exist
-RUN mkdir -p /var/spool/cron/crontabs \
-    && chmod -R 600 /var/spool/cron/crontabs \
-    && mkdir -p /var/log/openbmp \
-    && mkdir -p /var/log/supervisor \
-    && mkdir -p /tmp/locks
+COPY --chmod=755 --from=build /ws/scripts/geo-csv-to-psql.py /usr/local/openbmp/
 
 # Add system configuration files
-COPY --chmod=755 docker/files/etc/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 COPY --chmod=755 docker/files/etc/logrotate.conf /etc/logrotate.conf
+COPY --chmod=755 docker/files/etc/supervisord.conf /etc/supervisord.conf
 
-# Add OpenBMP configuration scripts
-COPY --chmod=755 docker/scripts/configure/01_environment.sh /usr/local/openbmp/configure/01_environment.sh
-COPY --chmod=755 docker/scripts/configure/02_pg_profile.sh /usr/local/openbmp/configure/02_pg_profile.sh
-COPY --chmod=755 docker/scripts/configure/03_db_import.sh /usr/local/openbmp/configure/03_db_import.sh
-COPY --chmod=755 docker/scripts/configure/04_db_upgrade.sh /usr/local/openbmp/configure/04_db_upgrade.sh
-COPY --chmod=755 docker/scripts/configure/05_cron.sh /usr/local/openbmp/configure/05_cron.sh
-COPY --chmod=755 docker/scripts/configure/06_consumer.sh /usr/local/openbmp/configure/06_consumer.sh
-
-# Add OpenBMP service health scripts
-COPY --chmod=755 docker/scripts/health/kafka.sh /usr/local/openbmp/servicecheck/kafka.sh
-COPY --chmod=755 docker/scripts/health/postgres.sh /usr/local/openbmp/servicecheck/postgres.sh
-
-# OpenBMP job scripts
-COPY --chmod=755 docker/scripts/jobs/enable_dbip.sh /usr/local/openbmp/jobs/enable_dbip.sh
-COPY --chmod=755 docker/scripts/jobs/enable_irr.sh /usr/local/openbmp/jobs/enable_irr.sh
-COPY --chmod=755 docker/scripts/jobs/enable_rpki.sh /usr/local/openbmp/jobs/enable_rpki.sh
-COPY --chmod=755 docker/upgrade /tmp/upgrade
+# Add OpenBMP service scripts
+COPY --chmod=755 docker/scripts/configure /usr/local/openbmp/configure/
+COPY --chmod=755 docker/scripts/health /usr/local/openbmp/servicecheck/
+COPY --chmod=755 docker/scripts/jobs /usr/local/openbmp/jobs/
+COPY --chmod=755 docker/scripts/upgrade /usr/local/openbmp/database/upgrade/
 
 COPY --chmod=755 docker/scripts/docker-entrypoint.sh /docker-entrypoint.sh
 

@@ -11,8 +11,26 @@ import sys
 from collections import OrderedDict, deque
 from ftplib import FTP
 import traceback
+import logging
+
 
 import dbHandler
+
+# setup logging
+log_format = ('[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s')
+
+# Define basic configuration
+logging.basicConfig(
+    # Define logging level
+    level=logging.INFO,
+    # Declare the object  created to format the log messages
+    format=log_format,
+    # Declare handlers
+    handlers=[
+        logging.StreamHandler()
+    ])
+
+logger = logging.getLogger("OBMP whois:: ")
 
 # ----------------------------------------------------------------
 # RR Database download sites
@@ -79,7 +97,7 @@ def import_rr_db_file(db, source, db_filename):
     record = {'source': source}
     inf = None
 
-    print("Parsing %s" % db_filename)
+    logger.info("Parsing %s" % db_filename)
     if (db_filename.endswith(".gz")):
         inf = gzip.open(db_filename, 'rb')
     else:
@@ -114,7 +132,7 @@ def import_rr_db_file(db, source, db_filename):
                         record[WHOIS_ATTR_MAP[prev_attr]] += "\n" + value
 
                     except:
-                        print("problem with continuation: (%s) '%s'\n\t\t%r" % (prev_attr, line, record))
+                        logger.error("problem with continuation: (%s) '%s'\n\t\t%r" % (prev_attr, line, record))
                         pass
 
             elif ': ' in line:
@@ -224,16 +242,16 @@ def download_data_file():
 
     for source in RR_DB_FTP:
         try:
-            print ("Downloading %s..." % source)
+            logger.info("Downloading %s..." % source)
             ftp = FTP(RR_DB_FTP[source]['site'])
             ftp.login()
             ftp.cwd(RR_DB_FTP[source]['path'])
             ftp.retrbinary("RETR %s" % RR_DB_FTP[source]['filename'],
                            open("%s/%s" % (TMP_DIR, RR_DB_FTP[source]['filename']), 'wb').write)
             ftp.quit()
-            print ("      Done downloading %s" % source)
+            logger.info("Done downloading %s" % source)
         except:
-            print ("Error processing %s, skipping" % source)
+            logger.error("couldn't process %s, skipping" % source)
             traceback.print_exc()
 
 
@@ -294,7 +312,7 @@ def parseCmdArgs(argv):
 
         # The last arg should be the command
         if (len(args) <= 0):
-            print ("ERROR: Missing the database host/IP")
+            logger.error("Missing the database host/IP")
             usage(argv[0])
             sys.exit(1)
 
@@ -304,14 +322,14 @@ def parseCmdArgs(argv):
 
         # The last arg should be the command
         if (found_req_args < REQUIRED_ARGS):
-            print ("ERROR: Missing required args, found %d required %d" % (found_req_args, REQUIRED_ARGS))
+            logger.error("Missing required args, found %d required %d" % (found_req_args, REQUIRED_ARGS))
             usage(argv[0])
             sys.exit(1)
 
         return cmd_args
 
     except (getopt.GetoptError, TypeError) as err:
-        print (str(err))  # will print something like "option -a not recognized"
+        logger.error(str(err))  # will print something like "option -a not recognized"
         usage(argv[0])
         sys.exit(2)
 

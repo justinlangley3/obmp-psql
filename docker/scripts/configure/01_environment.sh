@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+echo "===> Configuring OpenBMP Environment"
 export SYS_NUM_CPU=$(grep processor /proc/cpuinfo | wc -l)
 
 # JVM defaults

@@ -12,6 +12,24 @@ from collections import OrderedDict
 from time import sleep
 import subprocess
 import dns.resolver
+import logging
+
+
+# setup logging
+log_format = ('[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s')
+
+# Define basic configuration
+logging.basicConfig(
+    # Define logging level
+    level=logging.INFO,
+    # Declare the object  created to format the log messages
+    format=log_format,
+    # Declare handlers
+    handlers=[
+        logging.StreamHandler()
+    ])
+
+logger = logging.getLogger("OBMP whois:: ")
 
 TBL_GEN_WHOIS_ASN_NAME = "info_asn"
 
@@ -88,9 +106,9 @@ def getASNList(db):
     """
     # Run query and store data
     rows = db.query(QUERY_AS_LIST)
-    print("Query for ASN List took %r seconds" % (db.last_query_time))
+    logger.info("Query for ASN List took %r seconds" % (db.last_query_time))
 
-    print("total rows = %d" % len(rows))
+    logger.info("total rows = %d" % len(rows))
 
     asnList = []
 
@@ -295,7 +313,7 @@ def walkWhois(db, asnList):
 
         # delay between queries
         if (requests >= MAX_REQUESTS_PER_INTERVAL):
-            print("%s: Processed %d of %d" % (datetime.utcnow(), asnList_processed, asnList_size))
+            logger.info("%s: Processed %d of %d" % (datetime.utcnow(), asnList_processed, asnList_size))
             sleep(5)
             requests = 0
 
@@ -383,7 +401,7 @@ def parseCmdArgs(argv):
 
         # The last arg should be the command
         if (len(args) <= 0):
-            print("ERROR: Missing the database host/IP")
+            logger.error("Missing the database host/IP")
             usage(argv[0])
             sys.exit(1)
 
@@ -394,14 +412,14 @@ def parseCmdArgs(argv):
 
         # The last arg should be the command
         if (found_req_args < REQUIRED_ARGS):
-            print("ERROR: Missing required args, found %d required %d" % (found_req_args, REQUIRED_ARGS))
+            logger.error("Missing required args, found %d required %d" % (found_req_args, REQUIRED_ARGS))
             usage(argv[0])
             sys.exit(1)
 
         return cmd_args
 
     except (getopt.GetoptError, TypeError) as err:
-        print(str(err))  # will print something like "option -a not recognized"
+        logger.error(str(err))  # will print something like "option -a not recognized"
         usage(argv[0])
         sys.exit(2)
 

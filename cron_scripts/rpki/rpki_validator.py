@@ -11,6 +11,7 @@ import dbHandler
 import json
 import urllib3
 import requests
+import logging
 
 import ipaddr
 from time import time
@@ -18,6 +19,21 @@ from time import time
 # ----------------------------------------------------------------
 # Global variables
 # ----------------------------------------------------------------
+# setup logging
+log_format = ('[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s')
+
+# Define basic configuration
+logging.basicConfig(
+    # Define logging level
+    level=logging.INFO,
+    # Declare the object  created to format the log messages
+    format=log_format,
+    # Declare handlers
+    handlers=[
+        logging.StreamHandler()
+    ])
+
+logger = logging.getLogger("OBMP rpki_validator:: ")
 
 
 # ----------------------------------------------------------------
@@ -43,7 +59,7 @@ def load_export(db, server, rpkiuser, rpkipassword):
         data = json_response['roas'] # json
 
     except requests.exceptions.RequestException as e:
-        print ("Error connecting to rpki server: %r") % err
+        logger.error("Could not connect to rpki server: %r") % err
         return 
 
     query = query_begin
@@ -142,7 +158,7 @@ def parseCmdArgs(argv):
 
         # The last arg should be the command
         if (len(args) <= 0):
-            print ("ERROR: Missing the database host/IP")
+            logger.error("Missing the database host/IP")
             usage(argv[0])
             sys.exit(1)
 
@@ -153,14 +169,14 @@ def parseCmdArgs(argv):
 
         # The last arg should be the command
         if (found_req_args < REQUIRED_ARGS):
-            print ("ERROR: Missing required args, found %d required %d" % (found_req_args, REQUIRED_ARGS))
+            logger.error("Missing required args, found %d required %d" % (found_req_args, REQUIRED_ARGS))
             usage(argv[0])
             sys.exit(1)
 
         return cmd_args
 
     except (getopt.GetoptError, TypeError) as err:
-        print (str(err))  # will print something like "option -a not recognized"
+        logger.error(str(err))  # will print something like "option -a not recognized"
         usage(argv[0])
         sys.exit(2)
 
@@ -193,19 +209,19 @@ def main():
 
     db = dbHandler.dbHandler()
     db.connectDb(cfg['user'], cfg['password'], cfg['db_host'], cfg['db_name'])
-    print('connected to db')
+    logger.info('connected to db')
 
     server = cfg['server']
     rpkiuser = cfg['rpkiuser']
     rpkipassword = cfg['rpkipassword']
     load_export(db, server, rpkiuser, rpkipassword);
-    print ("Loaded rpki roas")
+    logger.info("Loaded rpki roas")
 
     # Purge old entries that didn't get updated
     db.queryNoResults("DELETE FROM rpki_validator WHERE timestamp < now() - interval '1 hour'")
-    print("purged old roas")
+    logger.info("purged old roas")
 
-    print("Done")
+    logger.info("Done")
 
 
 if __name__ == '__main__':

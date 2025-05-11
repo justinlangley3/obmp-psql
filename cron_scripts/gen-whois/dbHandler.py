@@ -10,6 +10,23 @@
 """
 import psycopg2 as py
 from time import time
+import logging
+
+# setup logging
+log_format = ('[%(asctime)s] %(levelname)-8s %(name)-12s %(message)s')
+
+# Define basic configuration
+logging.basicConfig(
+    # Define logging level
+    level=logging.INFO,
+    # Declare the object  created to format the log messages
+    format=log_format,
+    # Declare handlers
+    handlers=[
+        logging.StreamHandler()
+    ])
+
+logger = logging.getLogger("OBMP db_handler:: ")
 
 class dbHandler:
     """ Database handler class
@@ -41,7 +58,7 @@ class dbHandler:
             self.cursor = self.conn.cursor()
 
         except (py.ProgrammingError) as err:
-            print("ERROR: Connect failed: " + str(err))
+            logger.error("Connect failed: " + str(err))
             raise err
 
     def close(self):
@@ -64,7 +81,7 @@ class dbHandler:
             :return: True if the table successfully was created, false otherwise
         """
         if (not self.cursor):
-            print("ERROR: Looks like psql is not connected, try to reconnect.")
+            logger.error("psql is not connected, try to reconnect.")
             return False
 
         try:
@@ -74,7 +91,7 @@ class dbHandler:
             self.cursor.execute(tableSchema)
 
         except py.ProgrammingError as err:
-            print("ERROR: Failed to create table - " + str(err))
+            logger.error("Failed to create table - " + str(err))
             #raise err
 
 
@@ -90,7 +107,7 @@ class dbHandler:
             :return: True if the table successfully was created, false otherwise
         """
         if (not self.cursor):
-            print("ERROR: Looks like psql is not connected, try to reconnect.")
+            logger.error("psql is not connected, try to reconnect.")
             return False
 
         try:
@@ -100,7 +117,7 @@ class dbHandler:
             self.cursor.execute(tableSchema)
 
         except py.ProgrammingError as err:
-            print("ERROR: Failed to create table - " + str(err))
+            logger.error("Failed to create table - " + str(err))
             #raise err
             return False
 
@@ -116,7 +133,7 @@ class dbHandler:
             :return: Returns "None" if error, otherwise array list of rows
         """
         if (not self.cursor):
-            print("ERROR: Looks like psql is not connected, try to reconnect")
+            logger.error("psql is not connected, try to reconnect")
             return None
 
         try:
@@ -141,7 +158,7 @@ class dbHandler:
             return rows
 
         except py.ProgrammingError as err:
-            print("ERROR: query failed - " + str(err))
+            logger.error("query failed - " + str(err))
             return None
 
     def queryNoResults(self, query, queryParams=None):
@@ -154,7 +171,7 @@ class dbHandler:
             :return: Returns True if successful, false if not.
         """
         if (not self.cursor):
-            print("ERROR: Looks like psql is not connected, try to reconnect")
+            logger.error("psql is not connected, try to reconnect")
             return None
 
         try:
@@ -172,6 +189,6 @@ class dbHandler:
             return True
 
         except py.ProgrammingError as err:
-            print("ERROR: query failed - " + str(err))
+            logger.error("query failed - " + str(err))
             #print("   QUERY: %s", query)
             return None

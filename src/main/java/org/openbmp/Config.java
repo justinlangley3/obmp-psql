@@ -137,7 +137,7 @@ public class Config {
                 map_cfg = mapper.readValue(new InputStreamReader(getClass().getResourceAsStream("/obmp-psql.yml")), typeRef_cfg);
 
             } else {
-                logger.info("Loading custom configuration file");
+                logger.info("Loading consumer configuration file");
                 map_cfg = mapper.readValue(new File(cfg_file), typeRef_cfg);
             }
 
@@ -230,9 +230,7 @@ public class Config {
                              */
                             Map<String, Object> map = ((Map<String, Object>) subEntry.getValue());
 
-                            logger.info("Kafka Properties:");
                             for (Map.Entry<String, Object> cEntry : map.entrySet()) {
-                                logger.info("  {}: {}", cEntry.getKey(), cEntry.getValue());
                                 kafka_consumer_props.setProperty(cEntry.getKey(), cEntry.getValue().toString());
                             }
 

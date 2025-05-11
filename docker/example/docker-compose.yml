@@ -1,0 +1,102 @@
+# OpenBMP Consumer Volumes
+# https://docs.docker.com/reference/compose-file/volumes/#example
+volumes:
+  logs:
+    name: openbmp-consumer-logs
+  pki:
+    name: openbmp-pki
+    external: true
+
+# OpenBMP Consumer Services
+# https://docs.docker.com/reference/compose-file/services/
+services:
+  consumer:
+    container_name: obmp-consumer
+    image: openbmp/psql-app:2.2.2
+    restart: unless-stopped
+
+    # Consumer App - Exposed Ports
+    # https://docs.docker.com/reference/compose-file/services/#ports
+    ports:
+      - "9005:9005"
+
+    # Consumer App - Extra sysctls
+    # https://docs.docker.com/reference/compose-file/services/#sysctls
+    sysctls:
+      - net.ipv4.tcp_keepalive_intvl=30
+      - net.ipv4.tcp_keepalive_probes=5
+      - net.ipv4.tcp_keepalive_time=180
+
+    # Consumer App - Mounts
+    # https://docs.docker.com/reference/compose-file/services/#volumes
+    volumes:
+      - /home/$USER/config:/config
+      - logs:/var/log
+      - pki:/etc/openbmp/pki:ro
+
+    # Consumer App - Extra /etc/hosts entries
+    # https://docs.docker.com/reference/compose-file/services/#extra_hosts
+    extra_hosts:
+      - "patroni1:192.0.2.1"
+      - "patroni2:192.0.2.2"
+      - "kafka1:192.0.2.1"
+      - "kafka2:192.0.2.2"
+      - "kafka3:192.0.2.3"
+
+    # Consumer App - Environment Variables
+    # https://docs.docker.com/reference/compose-file/services/#environment
+    environment:
+      # Optional services
+      ENABLE_RPKI: 1
+      ENABLE_IRR: 1
+      ENABLE_DBIP: 1
+      # RPKI validation
+      RPKI_URL: "https://rpki.cloudflare.com/rpki.json"
+      RPKI_PASS: None
+      RPKI_USER: None
+      # Consumer App JVM options
+      JAVA_XMX: 1g
+      JAVA_XMS: 1g
+      JAVA_EXTRA_OPTS: >-
+        -XX:+UseG1GC
+        -XX:+UnlockExperimentalVMOptions
+        -XX:InitiatingHeapOccupancyPercent=30
+        -XX:G1MixedGCLiveThresholdPercent=30
+        -XX:MaxGCPauseMillis=200
+        -XX:ParallelGCThreads=20
+        -XX:ConcGCThreads=5
+        -XX:+ExitOnOutOfMemoryError
+        -Duser.timezone=UTC
+      # Kafka client options
+      KAFKA_BROKERS: "kafka1:9092,kafka2:9092"
+      KAFKA_SSL: true
+      KAFKA_SSL_KEYSTORE_PASSWORD: openbmp
+      KAFKA_SSL_TRUSTSTORE_PASSWORD: openbmp
+      KAFKA_SSL_KEYSTORE_LOCATION: "/etc/openbmp/pki/openbmp_keystore.jks"
+      KAFKA_SSL_TRUSTSTORE_LOCATION: "/etc/openbmp/pki/openbmp_truststore.jks"
+      KAFKA_SSL_CERTIFICATE_LOCATION: "/etc/openbmp/pki/openbmp.pem"
+      KAFKA_SSL_KEY_LOCATION: "/etc/openbmp/pki/openbmp.key"
+      KAFKA_SSL_CA_LOCATION: "/etc/openbmp/pki/openbmp_ca.pem"
+      # PostgreSQL client options
+      POSTGRES_HOST: patroni1
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: openbmp
+      POSTGRES_USER: openbmp
+      POSTGRES_PASSWORD: openbmp
+      POSTGRES_SSL: true
+      POSTGRES_SSL_MODE: require
+      # Extra PostgreSQL options
+      POSTGRES_REPORT_WINDOW: '8 minute'
+      POSTGRES_DROP_alerts: '4 weeks'
+      POSTGRES_DROP_ip_rib_log: '4 weeks'
+      POSTGRES_DROP_ls_links_log: '4 months'
+      POSTGRES_DROP_ls_nodes_log: '4 months'
+      POSTGRES_DROP_ls_prefixes_log: '4 months'
+      POSTGRES_DROP_peer_event_log: '1 year'
+      POSTGRES_DROP_stat_reports: '4 weeks'
+      POSTGRES_DROP_stats_chg_byasn: '4 weeks'
+      POSTGRES_DROP_stats_chg_bypeer: '4 weeks'
+      POSTGRES_DROP_stats_chg_byprefix: '4 weeks'
+      POSTGRES_DROP_stats_ip_origins: '4 weeks'
+      POSTGRES_DROP_stats_peer_rib: '4 weeks'
+      POSTGRES_DROP_stats_peer_update_counts: '4 weeks'
