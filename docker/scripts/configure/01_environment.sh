@@ -29,12 +29,28 @@ export POSTGRES_SSL_MODE=${POSTGRES_SSL_MODE:-"require"}
 export POSTGRES_USER=${POSTGRES_USER:-"openbmp"}
 
 # Kafka
-export KAFKA_BROKERS="${KAFKA_BROKERS:-${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}}"
-export KAFKA_SSL=${KAFKA_SSL:-"false"}
-export KAFKA_SSL_CA=${KAFKA_SSL_CA:-"/etc/openbmp/pki/openbmp_ca.pem"}
+export KAFKA_BROKERS="${KAFKA_BROKERS:-${KAFKA_BOOTSTRAP_SERVERS:-kafka1:9092}}"
 
-if [[ "$KAFKA_SSL" == "true" && ! -f $KAFKA_SSL_CA ]]; then
-    echo "ERROR: Kafka SSL is enabled, but CA file is missing or empty: $KAFKA_SSL_CA"
+# Kafka - Java SSL options
+export KAFKA_SSL=${KAFKA_SSL:-"false"}
+export KAFKA_SECURITY_PROTOCOL=${KAFKA_SECURITY_PROTOCOL:-"PLAINTEXT"}
+export KAFKA_SSL_KEYSTORE_LOCATION=${KAFKA_SSL_KEYSTORE_LOCATION:-}
+export KAFKA_SSL_KEYSTORE_PASSWORD=${KAFKA_SSL_KEYSTORE_PASSWORD:-}
+export KAFKA_SSL_TRUSTSTORE_LOCATION=${KAFKA_SSL_TRUSTSTORE_LOCATION:-}
+export KAFKA_SSL_TRUSTSTORE_PASSWORD=${KAFKA_SSL_TRUSTSTORE_PASSWORD:-}
+
+# Kafka - librdkafka SSL options for kcat (formerly kafkacat)
+export KAFKA_SSL_CA_LOCATION=${KAFKA_SSL_CA_LOCATION:-}
+export KAFKA_SSL_CERTIFICATE_LOCATION=${KAFKA_SSL_CERTIFICATE_LOCATION:-}
+export KAFKA_SSL_KEY_LOCATION=${KAFKA_SSL_KEY_LOCATION:-}
+
+
+if [[ "$KAFKA_SSL" == "true" ]]; then
+    export KAFKA_SECURITY_PROTOCOL="SSL"
+fi
+
+if [[ "$KAFKA_SSL" == "true" && ! -f $KAFKA_SSL_CA_LOCATION ]]; then
+    echo "ERROR: Kafka SSL is enabled, but KAFKA_SSL_CA_LOCATION file is missing or empty: $KAFKA_SSL_CACERT"
     exit 1
 fi
 

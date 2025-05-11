@@ -7,8 +7,13 @@ elapsed=0
 
 echo "===> Waiting up to ${KAFKA_STARTUP_TIMEOUT}s for Kafka to start ..."
 
-KAFKA_OPTS="-X security.protocol=$( [[ "$KAFKA_SSL" == "true" ]] && echo "SSL" || echo "PLAINTEXT" )"
-[[ "$KAFKA_SSL" == "true" ]] && KAFKA_OPTS+=" -X ssl.ca.location=$KAFKA_SSL_CA"
+KAFKA_OPTS="-X security.protocol=$KAFKA_SECURITY_PROTOCOL"
+if [[ "$KAFKA_SSL" == "true" ]]; then
+    [[ -n "$KAFKA_SSL_CERTIFICATE_LOCATION" ]] && KAFKA_OPTS+=" -X ssl.certificate.location=$KAFKA_SSL_CERTIFICATE_LOCATION"
+    [[ -n "$KAFKA_SSL_KEY_LOCATION" ]] && KAFKA_OPTS+=" -X ssl.key.location=$KAFKA_SSL_KEY_LOCATION"
+    [[ -n "$KAFKA_SSL_CA_LOCATION" ]] && KAFKA_OPTS+=" -X ssl.ca.location=$KAFKA_SSL_CA_LOCATION"
+fi
+
 
 while ! kcat $KAFKA_OPTS -u -b "$KAFKA_BROKERS" -L | grep -q broker; do
     (( elapsed >= KAFKA_STARTUP_TIMEOUT )) && {
