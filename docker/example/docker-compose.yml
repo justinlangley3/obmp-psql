@@ -81,10 +81,11 @@ services:
       POSTGRES_HOST: patroni1
       POSTGRES_PORT: 5432
       POSTGRES_DB: openbmp
-      POSTGRES_USER: openbmp
+      POSTGRES_USERNAME: openbmp
       POSTGRES_PASSWORD: openbmp
       POSTGRES_SSL: true
       POSTGRES_SSL_MODE: require
+      # TODO: PostgesSQL mTLS options
       # Extra PostgreSQL options
       POSTGRES_REPORT_WINDOW: '8 minute'
       POSTGRES_DROP_alerts: '4 weeks'

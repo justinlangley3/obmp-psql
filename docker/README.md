@@ -4,7 +4,7 @@ This container is the main application container for OpenBMP and PostgreSQL.
 It provides:
 
 * PostgreSQL consumer 
-* RPKI validator improt/sync 
+* RPKI validator import/sync 
 * IRR and peering DB import/sync
 * Schedules and runs the metric DB functions
 * Schedules and runs the DB timescale DB chunk drops
@@ -13,6 +13,31 @@ It provides:
 See the [Dockerfile](Dockerfile) notes for build instructions.
 
 ## Running
+
+### Entrypoint
+
+The entrypoint for this container, [docker-entrypoint.sh](scripts/docker-entrypoint.sh), completes several tasks during startup:
+1. Creates required directories
+2. Removes stale PID and lock files
+3. Ensures postgres is reachable
+4. Ensures Kafka is reachable and runs Kafka validation tests
+5. Creates the OpenBMP database and tables if they do not exist
+6. Upgrades the database if required
+7. Configures cron jobs
+8. Configures the psql-app consumer
+9. Executes the container CMD
+
+> :bulb: The default CMD is `["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]`
+
+### Supervisord
+
+The container uses [supervisord](http://supervisord.org/) to manage the OpenBMP consumer processes.
+The supervisord configuration file is located at `/etc/supervisord.conf`.
+
+Services:
+* `crond` - Runs the OpenBMP cron jobs
+* `rsyslogd` - Runs the rsyslog daemon
+* `consumer` - Runs the OpenBMP psql-app consumer process (Java application)
 
 ### Kafka Validation Testing
 The Kafka setup can be tricky due to docker networking between containers and remote systems.  
@@ -193,5 +218,3 @@ docker exec obmp-consumer tail -f /var/log/supervisord.log
 docker exec obmp-consumer tail -f /var/log/openbmp/obmp-psql.log
 docker exec -it obmp-consumer /bin/bash
 ```
-
-

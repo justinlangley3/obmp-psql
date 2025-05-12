@@ -137,12 +137,12 @@ public class Config {
                 map_cfg = mapper.readValue(new InputStreamReader(getClass().getResourceAsStream("/obmp-psql.yml")), typeRef_cfg);
 
             } else {
-                logger.info("Loading consumer configuration file");
+                logger.info("Loading custom configuration file");
                 map_cfg = mapper.readValue(new File(cfg_file), typeRef_cfg);
             }
 
             for (Map.Entry<String, Object> entry: map_cfg.entrySet()) {
-                logger.debug("key: %s value: %s", entry.getKey(), entry.getValue());
+                logger.debug("%s: %s", entry.getKey(), entry.getValue());
 
                 /*
                  * Base config
@@ -229,8 +229,9 @@ public class Config {
                              * Consumer Config
                              */
                             Map<String, Object> map = ((Map<String, Object>) subEntry.getValue());
-
+                            logger.debug("kafka consumer config:");
                             for (Map.Entry<String, Object> cEntry : map.entrySet()) {
+                                logger.debug("    %s: %s", cEntry.getKey(), cEntry.getValue());
                                 kafka_consumer_props.setProperty(cEntry.getKey(), cEntry.getValue().toString());
                             }
 
@@ -239,8 +240,9 @@ public class Config {
                         else if (subEntry.getKey().equalsIgnoreCase("subscribe_topic_patterns")) {
                             List<String> patterns = ((List<String>) subEntry.getValue());
 
+                            logger.debug("kafka topic patterns:");
                             for (String pat: patterns) {
-                                logger.debug("topic pattern: %s", pat);
+                                logger.debug("    - %s", pat);
                                 kafka_topic_patterns.add(Pattern.compile(pat));
                             }
 
