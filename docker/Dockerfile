@@ -120,3 +120,5 @@ EXPOSE 9005
 WORKDIR /tmp
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

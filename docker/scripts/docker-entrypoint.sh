@@ -60,4 +60,9 @@ fi
 
 echo "===> Starting supervisord, and handing over control"
 
-exec /usr/bin/supervisord -c /etc/supervisord.conf
+if [[ $# -eq 0 ]]; then
+  echo "ERROR: No CMD to execute. Exiting."
+  exit 1
+fi
+
+exec "$@"
