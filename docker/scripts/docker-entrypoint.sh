@@ -8,18 +8,18 @@
 #
 set -e
 
+echo "===> Ensuring directories exist"
+mkdir -p /tmp/lock
+mkdir -p /var/log/openbmp
+mkdir -p /var/log/supervisor
+
 echo "===> Removing stale lock files"
-rm -f /tmp/locks/*
+rm -f /tmp/lock/*
 
 echo "===> Removing stale PID files"
 rm -f /var/run/supervisord.pid
 rm -f /var/run/rsyslogd.pid
 rm -f /var/run/cron.pid
-
-echo "===> Ensuring directories exist"
-mkdir -p /tmp/lock
-mkdir -p /var/log/openbmp
-mkdir -p /var/log/supervisor
 
 # configure environment variables
 source /usr/local/openbmp/configure/01_environment.sh
