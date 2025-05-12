@@ -19,7 +19,7 @@ KAFKA_SSL_TRUSTSTORE_PASSWORD_ESCAPED="$(escape "${KAFKA_SSL_TRUSTSTORE_PASSWORD
 KAFKA_SSL_TRUSTSTORE_LOCATION_ESCAPED="$(escape "${KAFKA_SSL_TRUSTSTORE_LOCATION}")"
 
 sed -i -e "s/\([ ]*host[ ]*:\).*/\1 \"${POSTGRES_HOST}:${POSTGRES_PORT}\"/" \
-       -e "s/\([ ]*username[ ]*:\).*/\1 \"${POSTGRES_USER}\"/" \
+       -e "s/\([ ]*username[ ]*:\).*/\1 \"${POSTGRES_USERNAME}\"/" \
        -e "s/\([ ]*password[ ]*:\).*/\1 \"${POSTGRES_PASSWORD_ESCAPED}\"/" \
        -e "s/\([ ]*db_name[ ]*:\).*/\1 \"${POSTGRES_DB}\"/" \
        -e "s/\([ ]*ssl_enable[ ]*:\).*/\1 \"${POSTGRES_SSL}\"/" \
