@@ -19,9 +19,10 @@ while ! kcat $KAFKA_OPTS -u -b "$KAFKA_BROKERS" -L | grep -q broker; do
     (( elapsed >= KAFKA_STARTUP_TIMEOUT )) && {
         echo "$(cat <<EOF
 ERROR: Kafka did not start within ${KAFKA_STARTUP_TIMEOUT}s.
-       Please ensure Kafka is reachable at ${KAFKA_BROKERS}.
-       
-       If SSL is required, please enable KAFKA_SSL and set KAFKA_SSL_CA.
+       Ensure Kafka is reachable at ${KAFKA_BROKERS}, and
+       if using SSL, enable KAFKA_SSL and set KAFKA_SSL_CA to a
+       valid CA certificate path.
+       Check the Kafka logs for more detailed information.
 EOF
 )"
         exit 1

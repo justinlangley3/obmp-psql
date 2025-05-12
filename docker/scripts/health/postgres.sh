@@ -11,7 +11,9 @@ while ! psql -c "SELECT 1;" &>/dev/null; do
     (( elapsed >= POSTGRES_STARTUP_TIMEOUT )) && {
         echo "$(cat <<EOF
 ERROR: Postgres did not start within ${POSTGRES_STARTUP_TIMEOUT}s.
-       Please ensure Postgres is reachable at ${POSTGRES_HOST}:${POSTGRES_PORT}.
+       Ensure Postgres is reachable at ${POSTGRES_HOST}:${POSTGRES_PORT},
+       and that the credentials are correct.
+       Check the Postgres logs for more detailed information.
 EOF
 )"
         exit 1

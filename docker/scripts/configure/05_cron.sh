@@ -11,21 +11,21 @@ MAILTO=""
 5 1,12 * * *	root  . /usr/local/openbmp/pg_profile && flock -n /tmp/lock/peeringdb.lock /usr/local/openbmp/peeringdb.py >> /var/log/openbmp/cron-peeringdb.log 2>&1
 
 # Update aggregation table stats
-*/5 * * * *  root   /usr/local/openbmp/jobs/update_chg_stats.sh > /dev/null 2>&1
-*/5 * * * *  root   /usr/local/openbmp/jobs/update_l3vpn_chg_stats.sh > /dev/null 2>&1
+*/5 * * * *  root   /usr/local/openbmp/jobs/chg_stats_update.sh > /dev/null 2>&1
+*/5 * * * *  root   /usr/local/openbmp/jobs/chg_stats_l3vpn_update.sh > /dev/null 2>&1
 
 # Update peer rib counts
-*/15 * * * *	root   /usr/local/openbmp/jobs/update_peer_rib_counts.sh > /dev/null 2>&1
+*/15 * * * *	root   /usr/local/openbmp/jobs/peer_counts_rib_update.sh > /dev/null 2>&1
 
 # Update peer update counts
-*/30 * * * *    root   /usr/local/openbmp/jobs/update_peer_counts.sh > /dev/null 2>&1
+*/30 * * * *    root   /usr/local/openbmp/jobs/peer_counts_update.sh > /dev/null 2>&1
 
 # Update global rib
-*/5 * * * *	root  /usr/local/openbmp/jobs/update_global_ip_rib.sh > /dev/null 2>&1
-5 */4 * * *	root  /usr/local/openbmp/jobs/purge_global_ip_rib.sh > /dev/null 2>&1
+*/5 * * * *	root  /usr/local/openbmp/jobs/global_ip_rib_update.sh > /dev/null 2>&1
+5 */4 * * *	root  /usr/local/openbmp/jobs/global_ip_rib_purge.sh > /dev/null 2>&1
 
 # Update origin stats
-21 * * * *	root  /usr/local/openbmp/jobs/update_origin_stats.sh > /dev/null 2>&1
+21 * * * *	root  /usr/local/openbmp/jobs/origin_stats_update.sh > /dev/null 2>&1
 
 EOF
 
