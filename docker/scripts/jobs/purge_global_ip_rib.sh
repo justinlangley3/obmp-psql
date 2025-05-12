@@ -26,10 +26,10 @@ flock -n 200 || {
 {
     echo "[CRON] $timestamp INFO: Starting purge_global_ip_rib..."
     if output=$(psql -c "SELECT purge_global_ip_rib('6 hour');" 2>&1); then
+        echo "$output"
         echo "[CRON] $timestamp INFO: purge_global_ip_rib completed."
-        echo "$output"
     else
-        echo "[CRON] $timestamp ERROR: purge_global_ip_rib failed."
         echo "$output"
+        echo "[CRON] $timestamp ERROR: purge_global_ip_rib failed."
     fi
 } >> "$LOG_FILE" 2>&1

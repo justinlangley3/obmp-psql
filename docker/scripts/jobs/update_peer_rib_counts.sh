@@ -26,10 +26,10 @@ flock -n 200 || {
 {
     echo "[CRON] $timestamp INFO: Starting update_peer_rib_counts..."
     if output=$(psql -c "SELECT update_peer_rib_counts();" 2>&1); then
+        echo "$output"
         echo "[CRON] $timestamp INFO: update_peer_rib_counts completed."
-        echo "$output"
     else
-        echo "[CRON] $timestamp ERROR: update_peer_rib_counts failed."
         echo "$output"
+        echo "[CRON] $timestamp ERROR: update_peer_rib_counts failed."
     fi
 } >> "$LOG_FILE" 2>&1

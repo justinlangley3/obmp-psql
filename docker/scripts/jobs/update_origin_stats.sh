@@ -27,11 +27,11 @@ flock -n 200 || {
 {
     echo "[CRON] $timestamp INFO: Starting update_origin_stats..."
     if output=$(psql -c "SELECT update_origin_stats('1 hour');" 2>&1); then
+        echo "$output"
         echo "[CRON] $timestamp INFO: update_origin_stats ran successfully." 
-        echo "$output"
     else
-        echo "[CRON] $timestamp ERROR: update_origin_stats failed."
         echo "$output"
+        echo "[CRON] $timestamp ERROR: update_origin_stats failed."
     fi
 } >> "$LOG_FILE" 2>&1
 

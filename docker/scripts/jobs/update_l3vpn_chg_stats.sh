@@ -26,10 +26,10 @@ flock -n 200 || {
 {
     echo "[CRON] $timestamp INFO: Starting update_l3vpn_chg_stats..."
     if output=$(psql -c "SELECT update_l3vpn_chg_stats('5 minute');" 2>&1); then
+        echo "$output"
         echo "[CRON] $timestamp INFO: update_l3vpn_chg_stats completed."
-        echo "$output"
     else
-        echo "[CRON] $timestamp ERROR: update_l3vpn_chg_stats failed."
         echo "$output"
+        echo "[CRON] $timestamp ERROR: update_l3vpn_chg_stats failed."
     fi
 } >> "$LOG_FILE" 2>&1

@@ -27,10 +27,10 @@ flock -n 200 || {
 {
     echo "[CRON] $timestamp INFO: Starting update_global_ip_rib..."
     if output=$(psql -c "SELECT update_global_ip_rib();" 2>&1); then
+        echo "$output"
         echo "[CRON] $timestamp INFO: update_global_ip_rib completed."
-        echo "$output"
     else
-        echo "[CRON] $timestamp ERROR: update_global_ip_rib failed."
         echo "$output"
+        echo "[CRON] $timestamp ERROR: update_global_ip_rib failed."
     fi
 } >> "$LOG_FILE" 2>&1
