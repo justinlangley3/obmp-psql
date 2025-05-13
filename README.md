@@ -91,11 +91,50 @@ When a collector is started, routers will make connections and start a RIB dump 
 It is expected that after RIB DUMP with stable routers/peers, BGP updates will be
 in the DB in less than 100ms from when the router transmits the BMP message. 
 
+
+### Database Retention Policy
+
+Starting from version 2.0.1, the OpenBMP Collector uses the built-in TimescaleDB retention policy management features.
+
+The [TimeScaleDB Data Retention](https://docs.timescale.com/api/latest/data-retention/) documentation describes two functions that can be used to manage the retention policy:
+- [`add_retention_policy`](https://docs.timescale.com/api/latest/data-retention/add_retention_policy/)
+- [`remove_retention_policy`](https://docs.timescale.com/api/latest/data-retention/remove_retention_policy/)
+
+Default retentions are added to the hypertables during database creation:
+```sql
+SELECT add_retention_policy('ip_rib_log', INTERVAL '2 months');
+SELECT add_retention_policy('l3vpn_rib_log', INTERVAL '2 months');
+SELECT add_retention_policy('ls_links_log', INTERVAL '8 weeks');
+SELECT add_retention_policy('ls_nodes_log', INTERVAL '8 weeks');
+SELECT add_retention_policy('ls_prefixes_log', INTERVAL '8 weeks');
+SELECT add_retention_policy('peer_event_log', INTERVAL '4 months');
+SELECT add_retention_policy('stat_reports', INTERVAL '8 weeks');
+SELECT add_retention_policy('stats_chg_byasn', INTERVAL '4 weeks');
+SELECT add_retention_policy('stats_chg_bypeer', INTERVAL '4 weeks');
+SELECT add_retention_policy('stats_chg_byprefix', INTERVAL '4 weeks');
+SELECT add_retention_policy('stats_ip_origins', INTERVAL '4 weeks');
+SELECT add_retention_policy('stats_l3vpn_chg_bypeer', INTERVAL '4 weeks');
+SELECT add_retention_policy('stats_l3vpn_chg_byprefix', INTERVAL '4 weeks');
+SELECT add_retention_policy('stats_l3vpn_chg_byrd', INTERVAL '4 weeks');
+SELECT add_retention_policy('stats_peer_rib', INTERVAL '4 weeks');
+SELECT add_retention_policy('stats_peer_update_counts', INTERVAL '4 weeks');
+```
+
+To list current retention policies on hypertables:
+```sql
+SELECT * FROM timescaledb_information.jobs where proc_name='policy_retention';
+```
+
+To change the retention policy for a hypertable:
+```sql
+SELECT remove_retention_policy('peer_event_log');
+SELECT add_retention_policy('peer_rib_log', INTERVAL '2 months');
+```
+
+
 Documentation
 -------------
 
 - [Build and Install](docs/BUILD.md)
 - [Running App](docs/RUN.md)
-
-
-
+- [Docker Deployment](docker/README.md)

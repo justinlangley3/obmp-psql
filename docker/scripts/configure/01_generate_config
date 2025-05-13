@@ -1,0 +1,245 @@
+#!/bin/bash
+set -e
+
+# set the final configuration path
+OPENBMP_CONFIG_FILE="/config/obmp-psql.yml"
+
+# collector base configuration
+BASE_DEFAULTS='
+base:
+  stats_inverval: 60
+  consumer_threads: 8
+  heartbeat_max_age: 6
+  writer_max_threads_per_type: 1
+  writer_allowed_over_queue_times: 8
+  writer_seconds_thread_scale_back: 4800
+  writer_rebalance_seconds: 900
+  writer_queue_size: 4000
+  consumer_queue_size: 10000
+'
+
+# debug toggles for collector components
+POSTGRES_DEFAULTS='
+postgres:
+  host: "localhost:5432"
+  db_name: "openbmp"
+  username: "openbmp"
+  password: "openbmp"
+  ssl_enable: false
+  batch_records: 3000
+  batch_time_millis: 300
+  retries: 6
+'
+
+# default Kafka message bus settings
+KAFKA_DEFAULTS='
+kafka:
+  consumer_config:
+    bootstrap.servers: "localhost:9092"
+    group.id: "openbmp-consumer"
+    client.id: "openbmp-consumer"
+    session.timeout.ms: 15000
+    heartbeat.interval.ms: 5000
+    max.poll.interval.ms: 300000
+    auto.offset.reset: "earliest"
+    max.partition.fetch.bytes: 2000000
+    max.poll.records: 1000
+    fetch.max.wait.ms: 50
+    security.protocol: "PLAINTEXT"
+  topic_subscribe_delay_millis: 15000
+  subscribe_topic_patterns:
+    - "openbmp[.]parsed[.]collector"
+    - "openbmp[.]parsed[.]router"
+    - "openbmp[.]parsed[.]peer"
+    - "openbmp[.]parsed[.]ls.*"
+    #- "openbmp[.]parsed[.]bmp_stat"
+    - "openbmp[.]parsed[.]base_attribute"
+    - "openbmp[.]parsed[.]l3vpn"
+    - "openbmp[.]parsed[.]unicast_prefix"
+'
+
+# initialize a configuration by merging the base values
+FINAL_CONFIG="$BASE_DEFAULTS$POSTGRES_DEFAULTS$KAFKA_DEFAULTS"
+
+# If OPENBMP_CONFIG is set, merge it with the final configuration, and
+# still give individual environment variables a higher precedence
+if [ -n "$OPENBMP_CONFIG" ]; then
+  FINAL_CONFIG=$(yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' <(echo "$FINAL_CONFIG") <(echo "$OPENBMP_CONFIG"))
+fi
+
+# Override configuration with environment variables if set
+# Priority is given to the environment variables over any other defaults
+
+# base settings
+if [ -n "$OPENBMP_STATS_INTERVAL" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".base.stats_interval = $OPENBMP_STATS_INTERVAL" -)
+fi
+
+if [ -n "$OPENBMP_CONSUMER_THREADS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".base.consumer_threads = $OPENBMP_CONSUMER_THREADS" -)
+fi
+
+if [ -n "$OPENBMP_HEARTBEAT_MAX_AGE" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".base.heartbeat_max_age= $OPENBMP_HEARTBEAT_MAX_AGE" -)
+fi
+
+if [ -n "$OPENBMP_WRITER_MAX_THREADS_PER_TYPE" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".base.writer_max_threads_per_type = $OPENBMP_WRITER_MAX_THREADS_PER_TYPE" -)
+fi
+
+if [ -n "$OPENBMP_WRITER_ALLOWED_OVER_QUEUE_TIMES" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".base.writer_allowed_over_queue_times = $OPENBMP_WRITER_ALLOWED_OVER_QUEUE_TIMES" -)
+fi
+
+if [ -n "$OPENBMP_WRITER_SECONDS_THREAD_SCALE_BACK" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".base.writer_seconds_thread_scale_back = $OPENBMP_WRITER_SECONDS_THREAD_SCALE_BACK" -)
+fi
+
+if [ -n "$OPENBMP_WRITER_REBALANCE_SECONDS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".base.writer_rebalance_seconds = $OPENBMP_WRITER_REBALANCE_SECONDS" -)
+fi
+
+if [ -n "$OPENBMP_WRITER_QUEUE_SIZE" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".base.writer_queue_size = $OPENBMP_WRITER_QUEUE_SIZE" -)
+fi
+
+if [ -n "$OPENBMP_QUEUE_SIZE" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".base.consumer_queue_size = $OPENBMP_QUEUE_SIZE" -)
+fi
+
+# Postgres settings
+if [ -n "$OPENBMP_POSTGRES_DB" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.db_name = \"$OPENBMP_POSTGRES_DB\"" -)
+fi
+
+if [ -n "$OPENBMP_POSTGRES_HOST" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.host = \"$OPENBMP_POSTGRES_HOST\"" -)
+fi
+
+if [ -n "$OPENBMP_POSTGRES_PORT" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.host = \"$OPENBMP_POSTGRES_HOST:$OPENBMP_POSTGRES_PORT\"" -)
+fi
+
+if [ -n "$OPENBMP_POSTGRES_USERNAME" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.username = \"$OPENBMP_POSTGRES_USERNAME\"" -)
+fi
+
+if [ -n "$OPENBMP_POSTGRES_PASSWORD" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.password = \"$OPENBMP_POSTGRES_PASSWORD\"" -)
+fi
+
+if [ -n "$OPENBMP_POSTGRES_SSL_ENABLED" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.ssl_enable = $OPENBMP_POSTGRES_SSL_ENABLED" -)
+fi
+
+if [ -n "$OPENBMP_POSTGRES_SSL_MODE" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.ssl_mode = \"$OPENBMP_POSTGRES_SSL_MODE\"" -)
+fi
+
+if [ -n "$OPENBMP_POSTGRES_BATCH_RECORDS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.batch_records = $OPENBMP_POSTGRES_BATCH_RECORDS" -)
+fi
+
+if [ -n "$OPENBMP_POSTGRES_BATCH_TIME_MILLIS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.batch_time_millis = $OPENBMP_POSTGRES_BATCH_TIME_MILLIS" -)
+fi
+
+if [ -n "$OPENBMP_POSTGRES_RETRIES" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.retries = $OPENBMP_POSTGRES_RETRIES" -)
+fi
+
+# Kafka settings
+if [ -n "$OPENBMP_KAFKA_CONSUMER_CONFIG" ]; then
+    FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval-all 'select(fileIndex == 0) * {"kafka": {"consumer_config": select(fileIndex == 1)}}' <(echo "$FINAL_CONFIG") <(echo "$OPENBMP_KAFKA_CONSUMER_CONFIG"))
+fi
+
+if [ -n "$OPENBMP_KAFKA_BROKERS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"bootstrap.servers\" = \"$OPENBMP_KAFKA_BROKERS\"" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_GROUP_ID" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"group.id\" = \"$OPENBMP_KAFKA_GROUP_ID\"" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_CLIENT_ID" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"client.id\" = \"$OPENBMP_KAFKA_CLIENT_ID\"" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_SESSION_TIMEOUT_MS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"session.timeout.ms\" = $OPENBMP_KAFKA_SESSION_TIMEOUT_MS" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_HEARTBEAT_INTERVAL_MS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"heartbeat.interval.ms\" = $OPENBMP_KAFKA_HEARTBEAT_INTERVAL_MS" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_MAX_POLL_INTERVAL_MS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"max.poll.interval.ms\" = $OPENBMP_KAFKA_MAX_POLL_INTERVAL_MS" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_AUTO_OFFSET_RESET" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"auto.offset.reset\" = \"$OPENBMP_KAFKA_AUTO_OFFSET_RESET\"" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_MAX_PARTITION_FETCH_BYTES" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"max.partition.fetch.bytes\" = $OPENBMP_KAFKA_MAX_PARTITION_FETCH_BYTES" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_MAX_POLL_RECORDS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"max.poll.records\" = $OPENBMP_KAFKA_MAX_POLL_RECORDS" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_FETCH_MAX_WAIT_MS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"fetch.max.wait.ms\" = $OPENBMP_KAFKA_FETCH_MAX_WAIT_MS" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_SECURITY_PROTOCOL" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"security.protocol\" = \"$OPENBMP_KAFKA_SECURITY_PROTOCOL\"" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_SSL_ENABLED" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"security.protocol\" = \"SSL\"" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_SSL_KEYSTORE_LOCATION" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"ssl.keystore.location\" = \"$OPENBMP_KAFKA_SSL_KEYSTORE_LOCATION\"" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_SSL_KEYSTORE_PASSWORD" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"ssl.keystore.password\" = \"$OPENBMP_KAFKA_SSL_KEYSTORE_PASSWORD\"" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_SSL_TRUSTSTORE_LOCATION" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"ssl.truststore.location\" = \"$OPENBMP_KAFKA_SSL_TRUSTSTORE_LOCATION\"" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_SSL_TRUSTSTORE_PASSWORD" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.consumer_config.\"ssl.truststore.password\" = \"$OPENBMP_KAFKA_SSL_TRUSTSTORE_PASSWORD\"" -)
+fi
+
+# topic subscription
+if [ -n "$OPENBMP_KAFKA_TOPIC_SUBSCRIBE_DELAY_MILLIS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".kafka.topic_subscribe_delay_millis = $OPENBMP_KAFKA_TOPIC_SUBSCRIBE_DELAY_MILLIS" -)
+fi
+
+if [ -n "$OPENBMP_KAFKA_SUBSCRIBE_TOPIC_PATTERNS" ]; then
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval-all 'select(fileIndex == 0) * {"kafka": {"subscribe_topic_patterns": select(fileIndex == 1)}}' <(echo "$FINAL_CONFIG") <(echo "$OPENBMP_KAFKA_SUBSCRIBE_TOPIC_PATTERNS"))
+fi
+
+# save out the final configuration
+echo "$FINAL_CONFIG" > "$OPENBMP_CONFIG_FILE"
+
+# notify of completion
+echo "===> OpenBMP configuration generated at $OPENBMP_CONFIG_FILE"
+
+echo "===> Exporting required environment variables"
+export OPENBMP_POSTGRES_DB=$(echo "$FINAL_CONFIG" | yq eval '.postgres.db_name' -)
+export OPENBMP_POSTGRES_HOST=$(echo "$FINAL_CONFIG" | yq eval '.postgres.host' -)
+export OPENBMP_POSTGRES_PORT=$(echo "$FINAL_CONFIG" | yq eval '.postgres.host' - | cut -d':' -f2)
+export OPENBMP_POSTGRES_USERNAME=$(echo "$FINAL_CONFIG" | yq eval '.postgres.username' -)
+export OPENBMP_POSTGRES_PASSWORD=$(echo "$FINAL_CONFIG" | yq eval '.postgres.password' -)
+export OPENBMP_KAFKA_BROKERS=$(echo "$FINAL_CONFIG" | yq eval '.kafka.consumer_config."bootstrap.servers"' -)
+export OPENBMP_KAFKA_SECURITY_PROTOCOL=$(echo "$FINAL_CONFIG" | yq eval '.kafka.consumer_config."security.protocol"' -)
+if [ "$OPENBMP_KAFKA_SECURITY_PROTOCOL" == "SSL" ]; then
+  export OPENBMP_KAFKA_SSL_ENABLED=true
+fi

@@ -1,6 +1,8 @@
 # OpenBMP Consumer Volumes
 # https://docs.docker.com/reference/compose-file/volumes/#example
 volumes:
+  config:
+    name: openbmp-consumer-config
   logs:
     name: openbmp-consumer-logs
   pki:
@@ -30,7 +32,7 @@ services:
     # Consumer App - Mounts
     # https://docs.docker.com/reference/compose-file/services/#volumes
     volumes:
-      - /home/$USER/config:/config
+      - config:/config
       - logs:/var/log
       - pki:/etc/openbmp/pki:ro
 
@@ -47,17 +49,17 @@ services:
     # https://docs.docker.com/reference/compose-file/services/#environment
     environment:
       # Optional services
-      ENABLE_RPKI: 1
-      ENABLE_IRR: 1
-      ENABLE_DBIP: 1
+      OPENBMP_IRR_ENABLED: 1
+      OPENBMP_DBIP_ENABLED: 1
+      OPENBMP_RPKI_ENABLED: 1
       # RPKI validation
-      RPKI_URL: "https://rpki.cloudflare.com/rpki.json"
-      RPKI_PASS: None
-      RPKI_USER: None
+      OPENBMP_RPKI_URL: "https://rpki.cloudflare.com/rpki.json"
+      OPENBMP_RPKI_PASS: None
+      OPENBMP_RPKI_USER: None
       # Consumer App JVM options
-      JAVA_XMX: 1g
-      JAVA_XMS: 1g
-      JAVA_EXTRA_OPTS: >-
+      OPENBMP_JAVA_XMX: 1g
+      OPENBMP_JAVA_XMS: 1g
+      OPENBMP_JAVA_EXTRA_OPTS: >-
         -XX:+UseG1GC
         -XX:+UnlockExperimentalVMOptions
         -XX:InitiatingHeapOccupancyPercent=30
@@ -67,37 +69,22 @@ services:
         -XX:ConcGCThreads=5
         -XX:+ExitOnOutOfMemoryError
         -Duser.timezone=UTC
-      # Kafka client options
-      KAFKA_BROKERS: "kafka1:9092,kafka2:9092"
-      KAFKA_SSL: true
-      KAFKA_SSL_KEYSTORE_PASSWORD: openbmp
-      KAFKA_SSL_TRUSTSTORE_PASSWORD: openbmp
-      KAFKA_SSL_KEYSTORE_LOCATION: "/etc/openbmp/pki/openbmp_keystore.jks"
-      KAFKA_SSL_TRUSTSTORE_LOCATION: "/etc/openbmp/pki/openbmp_truststore.jks"
-      KAFKA_SSL_CERTIFICATE_LOCATION: "/etc/openbmp/pki/openbmp.pem"
-      KAFKA_SSL_KEY_LOCATION: "/etc/openbmp/pki/openbmp.key"
-      KAFKA_SSL_CA_LOCATION: "/etc/openbmp/pki/openbmp_ca.pem"
       # PostgreSQL client options
-      POSTGRES_HOST: patroni1
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: openbmp
-      POSTGRES_USERNAME: openbmp
-      POSTGRES_PASSWORD: openbmp
-      POSTGRES_SSL: true
-      POSTGRES_SSL_MODE: require
+      OPENBMP_POSTGRES_DB: openbmp
+      OPENBMP_POSTGRES_HOST: patroni1
+      OPENBMP_POSTGRES_PORT: 5432
+      OPENBMP_POSTGRES_USERNAME: openbmp
+      OPENBMP_POSTGRES_PASSWORD: openbmp
       # TODO: PostgesSQL mTLS options
-      # Extra PostgreSQL options
-      POSTGRES_REPORT_WINDOW: '8 minute'
-      POSTGRES_DROP_alerts: '4 weeks'
-      POSTGRES_DROP_ip_rib_log: '4 weeks'
-      POSTGRES_DROP_ls_links_log: '4 months'
-      POSTGRES_DROP_ls_nodes_log: '4 months'
-      POSTGRES_DROP_ls_prefixes_log: '4 months'
-      POSTGRES_DROP_peer_event_log: '1 year'
-      POSTGRES_DROP_stat_reports: '4 weeks'
-      POSTGRES_DROP_stats_chg_byasn: '4 weeks'
-      POSTGRES_DROP_stats_chg_bypeer: '4 weeks'
-      POSTGRES_DROP_stats_chg_byprefix: '4 weeks'
-      POSTGRES_DROP_stats_ip_origins: '4 weeks'
-      POSTGRES_DROP_stats_peer_rib: '4 weeks'
-      POSTGRES_DROP_stats_peer_update_counts: '4 weeks'
+      OPENBMP_POSTGRES_SSL_ENABLED: true
+      OPENBMP_POSTGRES_SSL_MODE: require
+      # Kafka client options
+      OPENBMP_KAFKA_BROKERS: "kafka1:9092,kafka2:9092"
+      OPENBMP_KAFKA_SSL_ENABLED: true
+      OPENBMP_KAFKA_SSL_KEYSTORE_PASSWORD: openbmp
+      OPENBMP_KAFKA_SSL_TRUSTSTORE_PASSWORD: openbmp
+      OPENBMP_KAFKA_SSL_KEYSTORE_LOCATION: "/etc/openbmp/pki/openbmp_keystore.jks"
+      OPENBMP_KAFKA_SSL_TRUSTSTORE_LOCATION: "/etc/openbmp/pki/openbmp_truststore.jks"
+      OPENBMP_KAFKA_SSL_CERTIFICATE_LOCATION: "/etc/openbmp/pki/openbmp.pem"
+      OPENBMP_KAFKA_SSL_KEY_LOCATION: "/etc/openbmp/pki/openbmp.key"
+      OPENBMP_KAFKA_SSL_CA_LOCATION: "/etc/openbmp/pki/openbmp_ca.pem"

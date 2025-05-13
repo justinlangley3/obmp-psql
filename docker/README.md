@@ -3,11 +3,16 @@ This container is the main application container for OpenBMP and PostgreSQL.
 
 It provides:
 
-* PostgreSQL consumer 
+* Alpine Base Image
+* OpenBMP Consumer (Java application) - Handles writes to PostgreSQL
+* Runtime (e.g. Java, supervisord, core libraries, etc.)
+* Command-line tools (e.g. bash, kcat, psql, yq, etc.)
 * RPKI validator import/sync 
 * IRR and peering DB import/sync
 * Schedules and runs the metric DB functions
 * Schedules and runs the DB timescale DB chunk drops
+* A generator for the configuration file
+* A (generated) configuration file
 
 ## Building
 See the [Dockerfile](Dockerfile) notes for build instructions.
@@ -32,7 +37,7 @@ The entrypoint for this container, [docker-entrypoint.sh](scripts/docker-entrypo
 ### Supervisord
 
 The container uses [supervisord](http://supervisord.org/) to manage the OpenBMP consumer processes.
-The supervisord configuration file is located at `/etc/supervisord.conf`.
+The supervisord configuration file is [supervisord.conf](files/etc/supervisord.conf) and installs to the `/etc` directory.
 
 Services:
 * `crond` - Runs the OpenBMP cron jobs
@@ -124,7 +129,7 @@ Persistent volumes make it possible for upgrades without loosing any data.
 
 #### a) Bind Mounts
 
-File or directory bind mounts can be used with persistent config files. 
+File or directory bind mounts can be use to persist configuration files. 
 ```bash
 docker run -v /var/openbmp/config:/config
 ``` 
@@ -151,63 +156,213 @@ docker run -v openbmp-config:/config \
   openbmp/psql-app:build-50
 ```
 
-##### config/obmp-psql.yml
-If the [obmp-psql.yml](https://github.com/OpenBMP/obmp-postgres/blob/master/src/main/resources/obmp-psql.yml) file
-does not exist, a default one will be created. You should update this based on your settings. This file
-is inline documented.  
+### Container Configuration
 
-### 3) Run docker container
+The [obmp-psql.yml](https://github.com/OpenBMP/obmp-postgres/blob/master/src/main/resources/obmp-psql.yml) file is
+an example configuration file for the OpenBMP consumer (Java application). Configuration is generated when the
+container starts, so this file now serves only as a reference config.
 
-> :bulb: Tip: Running the docker container for the first time will automatically pull the container image. 
+> :warning: You should not need to modify the config directly -- use the environment variables instead.
 
 #### Environment Variables
-Below table lists the environment variables that can be passed to the container with ``docker run -e <name=value>`` or docker compose.
 
-Variable | Datatype | Details
-:------- | :------: | :------
-`ENABLE_DBIP` | 0 or 1 | Set to 1 to enable optional DBIP service. Default is **disabled** (0).
-`ENABLE_RPKI` | 0 or 1 | Set to 1 to enable optional RPKI service. Default is **disabled** (0).
-`ENABLE_IRR` | 0 or 1 | Set to 1 to enable optional IRR service. Default is **disabled** (0).
-`JAVA_XMX` | memory size | Java heap memory size. Default is **`512m`**, but can be set to **`1g`**, **`2g`**, etc.<br />This setting is the **_maximum_** heap size.
-`JAVA_XMS` | memory size | Java initial heap memory size. Defaults is `512m`, but can be set to `1g`, `2g`, etc.<br />This setting is the **_initial_** heap size, and generally should be the same value as `JAVA_XMX` to eliminate heap resizing.
-`JAVA_EXTRA_OPTS` | options | Extra Java options to pass to the JVM, and combined with the `JAVA_XMX` and `JAVA_XMS` options. These options are passed to the JVM as-is, so you can use any valid Java option here e.g. `-XX:+UseG1GC` to enable G1 garbage collector.<br />See below for an extended example.
-`POSTGRES_USERNAME` | username | Postgres username, default is **openbmp**
-`POSTGRES_PASSWORD` | password | Postgres password, default is **openbmp**
-`POSTGRES_DB` | database | Name of postgres database, default is **openbmp**
-`POSTGRES_HOST` | host | Hostname or IP address of the postgres server. Default is **localhost**.
-`POSTGRES_PORT` | port | Port number of the postgres server. Default is **5432**.
-`POSTGRES_SSL` | true or false | Enable SSL for postgres connection. Default is **false**.
-`POSTGRES_SSL_MODE` | require | SSL mode for postgres connection. Default is **require**.<br />Other options are **verify-ca** and **verify-full**.
-`KAFKA_BROKERS` | host | One or more Kafka broker host as `<hostname:port>`.  Hostnames can be IP addresses.
-`KAFKA_SSL` | true or false | Enable SSL for Kafka connection. Default is **false**.
-`KAFKA_SECURITY_PROTOCOL` | protocol | Security protocol for Kafka connection. Default is **plaintext**. Other options are **SSL** and **SASL_SSL**.
-`KAFKA_KEYSTORE_LOCATION` | filepath | Path to keystore for Kafka SSL connection. Default is **empty**.
-`KAFKA_KEYSTORE_PASSWORD` | password | Password for Kafka keystore. Default is **empty**.
-`KAFKA_TRUSTSTORE_LOCATION` | filepath | Path to truststore for Kafka SSL connection. Default is **empty**.
-`KAFKA_TRUSTSTORE_PASSWORD` | password | Password for Kafka truststore. Default is **empty**.
-`KAFKA_SSL_CA_LOCATION` | filepath | Path to CA certificate for Kafka SSL connection. Default is **empty**.<br />This is only used by `kafkacat` during startup kafka checks and validation tests.
-`KAFKA_SSL_CERTIFICATE_LOCATION` | filepath | Path to client certificate for Kafka SSL connection. Default is **empty**.<br />This is only used by `kafkacat` during startup kafka checks and validation tests.
-`KAFKA_SSL_KEY_LOCATION` | filepath | Path to client key for Kafka SSL connection. Default is **empty**.<br />This is only used by `kafkacat` during startup kafka checks and validation tests.
+Tables below list all of the environment variables that can be used.
 
-#### Docker Run obmp-consumer
+Variables can be set using the `-e` flag in the `docker run` command.
+or in the docker-compose.yml file under the `environment` section.
 
+> :warning: The `environment` section must be passed strictly as a list or as a
+> map. The map format is recommended for multiline YAML values.
+
+##### Key prefixes
+
+All **OpenBMP** specific parameters are prefixed: **OPENBMP_**  
+All **Postgres** specific parameters extend the prefix: **OPENBMP_POSTGRES_**  
+All **Kafka** specific parameters extend the prefix: **OPENBMP_KAFKA_**
+
+##### Generation
+
+The configuration generator is layered in this order:
+| Precedence | Type | Source | Details |
+| :--------- | :--: | :----- | :------ |
+| Lowest | Default Layer | [01_generate_config](scripts/configure/01_generate_config) | Sane base values for all required settings |
+| - | Environment | `OPENBMP_CONFIG` | Merged into the default settings<br/>This could potentially be the entire config, or<br />just a few desired values in the relevant sections |
+| - | Environment | `OPENBMP_KAFKA_CONSUMER_CONFIG` | Merged into the kafka settings after `OPENBMP_CONFIG`<br />Useful for setting all Kafka consumer values at once, or<br/>settings that do not have an environment variable yet |
+| Highest | Environment | All other environment variables | Merged into the final configuration |
+
+##### Multiline YAML
+
+The following variables require passing as multiline YAML strings.
+- `OPENBMP_CONFIG`
+- `OPENBMP_KAFKA_CONSUMER_CONFIG`
+- `OPENBMP_KAFKA_SUBSCRIBE_TOPIC_PATTERNS`
+
+> :bulb: Multiline YAML strings are passed using the `|-` or `>` syntax. The `|` character indicates a block literal, and the `>` character would indicate a block folded into spaces. The `-` character would indicate to chomp the trailing newline at the end of the block, if desired.
+
+```yaml
+environment:
+  OPENBMP_CONFIG: |
+    # This is a comment
+    # This is another comment
+  OPENBMP_KAFKA_CONSUMER_CONFIG: |
+    bootstrap.servers=kafka1:9092,kafka2:9092,kafka3:9092
+  OPENBMP_KAFKA_SUBSCRIBE_TOPIC_PATTERNS: |
+    # This is also a comment
+```
+
+###### Java (JVM Runtime) Options
+
+The OpenBMP Consumer is a Java application.   
+JVM options can be passed when it is started by setting the following environment variables:
+
+| Variable | Datatype | Details |
+| :------- | :------: | :------ |
+| `OPENBMP_JAVA_XMX` | String | Maximum heap size for the Java process.<br />Default is **512m**. |
+| `OPENBMP_JAVA_XMS` | String | Initial heap size for the Java process.<br />Default is **512m**. |
+| `OPENBMP_JAVA_EXTRA_OPTS` | String | Additional JVM options for the Java process.<br />See below for defaults. |
+
+These options are combined into a single **JAVA_OPTS** variable, and `supervisord` will pass them to the Java process when it starts.
+
+> :bulb: JVM extra options should be passed as a single line of space-separated values.
+> This demonstrates a YAML feature using the `>-` syntax. The `>` character indicates a block folded into spaces,
+> and the `-` character indicates to chomp the trailing newline at the end of the block.
+
+Default extra JVM options:
+```yaml
+environment:
+  OPENBMP_JAVA_EXTRA_OPTS: >-
+    -XX:+UseG1GC
+    -XX:+UnlockExperimentalVMOptions
+    -XX:InitiatingHeapOccupancyPercent=30
+    -XX:G1MixedGCLiveThresholdPercent=30
+    -XX:MaxGCPauseMillis=200
+    -XX:ParallelGCThreads=20
+    -XX:ConcGCThreads=5
+    -XX:+ExitOnOutOfMemoryError
+    -Duser.timezone=UTC
+```
+
+##### Optional Services
+
+These auxiliary import services are optional and can be enabled or disabled using the environment variables below.
+
+| Variable | Datatype | Details |
+| :------- | :------: | :------ |
+| `OPENBMP_DBIP_ENABLED` | Boolean | Enables the (optional) DB-IP importer as a cron service.<br />Default is **0**. |
+| `OPENBMP_IRR_ENABLED` | Boolean | Enables the (optional) IRR importer as a cron service.<br />Default is **0**. |
+| `OPENBMP_RPKI_ENABLED` | Boolean | Enables the (optional) RPKI importer as a cron service.<br />Default is **0**. |
+| `OPENBMP_RPKI_URL` | String | URL for the RPKI repository.<br />Default is **https://rpki.cloudflare.com/rpki.json**. |
+| `OPENBMP_RPKI_USERNAME` | String | Username for the RPKI repository.<br />Default is **None**. |
+| `OPENBMP_RPKI_PASSWORD` | String | Password for the RPKI repository.<br />Default is **None**. |
+
+##### Base Configuration
+
+| Variable | Datatype | Details |
+| :------- | :------: | :------ |
+| `OPENBMP_STATS_INTERVAL` | Integer | Interval consumer stats are printed or logged.<br />Default is **60** seconds. |
+| `OPENBMP_CONSUMMER_THREADS` | Integer | Number of consumer threads.<br />Default is **8**. |
+| `OPENBMP_HEARTBEAT_MAX_AGE` | Integer | The maximum age between collector heartbeats, in minutes, before it is considered down.<br />Default is **5** minutes. |
+| `OPENBMP_WRITER_MAX_THREADS_PER_TYPE` | Integer | The maximum number of writer threads per processing type: (default, base attributes).<br />Default is **1**. |
+| `OPENBMP_WRITER_ALLOWED_OVER_QUEUE_TIMES` | Integer | The number of times the writer queue can be over the high threshold mark before a new thread is added for the writer type.<br />Default is **8**. |
+| `OPENBMP_WRITER_SECONDS_THREAD_SCALE_BACK` | Integer | The number of seconds the writer needs to sustain below the low queue threshold mark in order to trigger scaling back the number of threads in use.<br />Default is **4800** seconds. |
+| `OPENBMP_WRITER_REBALANCE_SECONDS` | Integer | The number of seconds between rebalancing of writer threads.<br />Default is **900** seconds. |
+| `OPENBMP_WRITER_QUEUE_SIZE` | Integer | Maximum input size of the writer queue.<br />Default is **4000**. |
+| `OPENBMP_CONSUMER_QUEUE_SIZE` | Integer | Maximum input size of the consumer queue. A good starting point is twice that of `OPENBMP_WRITER_QUEUE_SIZE`<br />Default is **10000**. |
+
+##### Postgres Configuration
+
+| Variable | Datatype | Details |
+| :------- | :------: | :------ |
+| `OPENBMP_POSTGRES_STARTUP_TIMEOUT` | Integer | Determines how long, in seconds, to wait for Postgres startup before failing.<br />Default is **60** seconds. |
+| `OPENBMP_POSTGRES_DB` | String | Name of postgres database.<br />Default is **openbmp**. |
+| `OPENBMP_POSTGRES_HOST` | String | Hostname or IP address of the postgres server.<br />Default is **localhost**. |
+| `OPENBMP_POSTGRES_PORT` | Integer | Port number of the postgres server.<br />Default is **5432**. |
+| `OPENBMP_POSTGRES_USERNAME` | String | Postgres username.<br/>Default is **openbmp**. |
+| `OPENBMP_POSTGRES_PASSWORD` | String | Postgres password.<br />Default is **openbmp**. |
+| `OPENBMP_POSTGRES_SSL_ENABLED` | Boolean | Enable SSL for postgres connection. Default is **false**. |
+| `OPENBMP_POSTGRES_SSL_MODE` | String | SSL mode for postgres connection. Default is **require**.<br />Other options are **verify-ca** and **verify-full**. |
+| `OPENBMP_POSTGRES_BATCH_RECORDS` | Integer | Number of statements to batch in a bulk update/insert/delate.<br />Default is **3000**. |
+| `OPENBMP_POSTGRES_BATCH_TIME_MILLIS` | Integer | Number of milliseconds to wait before flushing the batch.<br />Default is **300**. |
+| `OPENBMP_POSTGRES_RETRIES` | Integer | Number of time to retry a failed statement.<br />Default is **6**. |
+
+##### Kafka Configuration
+
+| Variable | Datatype | Details |
+| :------- | :------: | :------ |
+| `OPENBMP_KAFKA_STARTUP_TIMEOUT` | Integer | Determines how long, in seconds, to wait for Kafka startup before failing.<br />Default is **60** seconds. |
+| `OPENBMP_KAFKA_BROKERS` | String | One or more Kafka broker host as `<hostname:port>`, passed to the `bootstrap.servers` setting. Hostnames can be IP addresses.<br />Default is **localhost:9092**. |
+| `OPENBMP_KAFKA_GROUP_ID` | String | Kafka consumer group ID.<br />Default is **openbmp-consumer**. |
+| `OPENBMP_KAFKA_CLIENT_ID` | String | Kafka client ID.<br/>Default is **openbmp-consumer**. |
+| `OPENBMP_KAFKA_SESSION_TIMEOUT_MS` | Integer | Kafka session timeout in milliseconds.<br />Default is **15000**. |
+| `OPENBMP_KAFKA_HEARTBEAT_INTERVAL_MS` | Integer | Kafka heartbeat interval in milliseconds.<br />Default is **5000**. |
+| `OPENBMP_KAFKA_MAX_POLL_INTERVAL_MS` | Integer | Kafka max poll interval in milliseconds.<br />Default is **300000**. |
+| `OPENBMP_KAFKA_AUTO_OFFSET_RESET` | String | Kafka auto offset reset policy.<br />Default is **earliest**. Other options are **latest** and **none**. |
+| `OPENBMP_KAFKA_MAX_PARTITION_FETCH_BYTES` | Integer | Kafka max partition fetch bytes.<br />Default is **2000000**. |
+| `OPENBMP_KAFKA_MAX_POLL_RECORDS` | Integer | Kafka max poll records.<br />Default is **1000**. |
+| `OPENBMP_KAFKA_SECURITY_PROTOCOL` | String | Security protocol for Kafka connection. Default is **PLAINTEXT**.<br />Other options are **SSL** and **SASL_SSL**. |
+| `OPENBMP_KAFKA_SSL_ENABLED` | Boolean | Sets `security.protocol` to `SSL`, enabling SSL for Kafka connection.<br />Default is **false**. |
+| `OPENBMP_KAFKA_SSL_TRUSTSTORE_LOCATION` | String | Path to the Kafka truststore file.<br />Default is **/config/kafka.truststore.jks**. |
+| `OPENBMP_KAFKA_SSL_TRUSTSTORE_PASSWORD` | String | Password for the Kafka truststore file.<br />Default is **changeit**. |
+| `OPENBMP_KAFKA_SSL_KEYSTORE_LOCATION` | String | Path to the Kafka keystore file.<br />Default is **/config/kafka.keystore.jks**. |
+| `OPENBMP_KAFKA_SSL_KEYSTORE_PASSWORD` | String | Password for the Kafka keystore file.<br />Default is **changeit**. |
+| `OPENBMP_KAFKA_TOPIC_SUBSCRIBE_DELAY_MILLIS` | Integer | Delay in milliseconds before subscribing to Kafka topics.<br />Default is **1000**. |
+| `OPENBMP_KAFKA_SUBSCRIBE_TOPIC_PATTERNS` | List | List of Kafka topic patterns to subscribe to.<br/>See below for defaults
+
+> :warning: If SSL is enabled, you are required to pass additional SSL variables.
+
+###### Kafkacat SSL
+
+These will be used by `kcat` (formerly kafkacat) to validate Kafka during startup. Kafkacat uses librdkafka, hence Java Keystore files are not supported in Kafkacat.
+Enabling ssl requires setting the following variables:
+
+| Variable | Datatype | Details | Condition |
+| :------- | :------: | :------ | :--------: |
+| `OPENBMP_KAFKA_SSL_CA_LOCATION` | String | Path to the CA certificate file.<br />Default is **empty**. | `OPENBMP_KAFKA_SSL_ENABLED=true` |
+| `OPENBMP_KAFKA_SSL_CERTIFICATE_LOCATION` | String | Path to the client certificate file.<br />Default is **empty**. | If Kafka is configured for mTLS |
+| `OPENBMP_KAFKA_SSL_KEY_LOCATION` | String | Path to the client key file.<br />Default is **empty**. | If Kafka is configured for mTLS |
+| `OPENBMP_KAFKA_SSL_KEY_PASSWORD` | String | Password for the client key file.<br />Default is **empty**. | If the client key is encrypted |
+
+> :bulb: Generating the `ca.key`, `ca.pem`, `client.key`, and `client.pem`, then deriving the kafka keystore 
+> and truststore files is outside the scope of this document. These files can be loaded into a docker volume
+> and mounted read-only into the container at an appropriate location e.g. `/etc/openbmp/pki/`.
+
+###### Default Kafka Topic Patterns
+```yaml
+environment:
+  OPENBMP_KAFKA_SUBSCRIBE_TOPIC_PATTERNS: |
+    - "openbmp[.]parsed[.]collector"
+    - "openbmp[.]parsed[.]router"
+    - "openbmp[.]parsed[.]peer"
+    - "openbmp[.]parsed[.]ls.*"
+    #- "openbmp[.]parsed[.]bmp_stat"
+    - "openbmp[.]parsed[.]base_attribute"
+    - "openbmp[.]parsed[.]l3vpn"
+    - "openbmp[.]parsed[.]unicast_prefix"
+```
+
+### Docker Run Example
+
+Docker compose is recommended for running a production deployment of OpenBMP, but using the `docker run` command still works. 
 ```bash
 docker run --rm -d --name obmp-consumer \
 	-h obmp-consumer \
-	-e ENABLE_DBIP=1 \
-	-e ENABLE_RPKI=1 \
-	-e ENABLE_IRR=1 \
-	-e KAFKA_BROKERS=kafka1:9092 \
-	-e JAVA_XMX=3g \
-	-e JAVA_XMS=3g \
-	-e JAVA_EXTRA_OPTS="-XX:+UseG1GC -XX:+UnlockExperimentalVMOptions -XX:InitiatingHeapOccupancyPercent=30 -XX:G1MixedGCLiveThresholdPercent=30 -XX:MaxGCPauseMillis=200 -XX:ParallelGCThreads=20 -XX:ConcGCThreads=5 -XX:+ExitOnOutOfMemoryError -Duser.timezone=UTC" \
+	-e OPENBMP_ENABLE_DBIP=1 \
+	-e OPENBMP_ENABLE_RPKI=1 \
+	-e OPENBMP_ENABLE_IRR=1 \
+	-e OPENBMP_KAFKA_BROKERS=kafka1:9092 \
+	-e OPENBMP_JAVA_XMX=3g \
+	-e OPENBMP_JAVA_XMS=3g \
+	-e OPENBMP_JAVA_EXTRA_OPTS="-XX:+UseG1GC -XX:+UnlockExperimentalVMOptions -XX:InitiatingHeapOccupancyPercent=30 -XX:G1MixedGCLiveThresholdPercent=30 -XX:MaxGCPauseMillis=200 -XX:ParallelGCThreads=20 -XX:ConcGCThreads=5 -XX:+ExitOnOutOfMemoryError -Duser.timezone=UTC" \
 	-v $OBMP_CONFIG:/config \
 	-p 9005:9005 \
 	openbmp/psql-app:build-50
 ```
-> :warning: If the container fails to start, check the container logs. You can view them with:  
-> `docker logs obmp-consumer`
 
+Editing the entrypoint will prevent supervisord from starting.  
+Useful if you don't want to load the environment, or start the consumer.
+```bash
+  --entrypoint /bin/bash
+```
 
 ### Monitoring/Troubleshooting
 

@@ -41,7 +41,8 @@ RUN mv obmp-java-api-message /tmp/obmp-java-api-message \
     && cd /tmp/obmp-java-api-message \
     && mvn clean install \
     && cd /ws/ \
-    && mvn clean package
+    && mvn clean package \
+    && cat /ws/dependency-reduced-pom.xml
 
 # Clean up packages and build cache
 RUN apk del openjdk17-jdk maven git \
@@ -74,6 +75,7 @@ RUN apk update \
         rsyslog \
         unzip \
         whois \
+        yq-go \
     # clean package cache
     && rm -rf /var/cache/apk/*
 
@@ -84,7 +86,7 @@ RUN pip3 install --break-system-packages pykafka supervisor
 RUN sed -i '/module(load="imklog")/s/^/#/' /etc/rsyslog.conf
 RUN sed -i '/module(load="immark")/s/^/#/' /etc/rsyslog.conf
 
-# Ensure cron directories exist
+# Ensure cron and rsyslog directories exist
 RUN mkdir -p /var/spool/cron/crontabs \
     && chmod -R 600 /var/spool/cron/crontabs
 
@@ -119,6 +121,6 @@ EXPOSE 9005
 
 WORKDIR /tmp
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT [ "/docker-entrypoint.sh" ]
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
