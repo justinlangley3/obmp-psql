@@ -66,7 +66,6 @@ RUN apk update \
         logrotate \
         openjdk17-jre \
         postgresql16-client \
-        py3-click \
         py3-dnspython \
         py3-ipaddr \
         py3-netaddr \
@@ -83,7 +82,7 @@ RUN apk update \
     && rm -rf /var/cache/apk/*
 
 # Install extra Python dependencies
-RUN pip3 install --break-system-packages pykafka supervisor
+RUN pip3 install --break-system-packages click pykafka supervisor
 
 # Disable unneeded rsyslog modules
 RUN sed -i '/module(load="imklog")/s/^/#/' /etc/rsyslog.conf
