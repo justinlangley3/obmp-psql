@@ -29,8 +29,8 @@ source /usr/local/openbmp/configure/03_pg_profile
 source /usr/local/openbmp/pg_profile
 
 # ensure required services are running
-/usr/local/openbmp/servicecheck/validate-postgres
-/usr/local/openbmp/servicecheck/validate-kafka
+source /usr/local/openbmp/servicecheck/validate-postgres
+source /usr/local/openbmp/servicecheck/validate-kafka
 
 # setup database and cron jobs
 /usr/local/openbmp/configure/04_db_import

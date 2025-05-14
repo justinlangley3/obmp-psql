@@ -8,7 +8,7 @@ elapsed=0
 echo "===> Waiting up to ${STARTUP_TIMEOUT}s for Kafka to start ..."
 
 KAFKA_OPTS="-X security.protocol=$OPENBMP_KAFKA_SECURITY_PROTOCOL"
-if [[ "$OPENBMP_KAFKA_SSL" == "true" ]]; then
+if [[ "$OPENBMP_KAFKA_SSL_ENABLED" == "true" ]]; then
     [[ -n "$OPENBMP_KAFKA_SSL_CERTIFICATE_LOCATION" ]] && KAFKA_OPTS+=" -X ssl.certificate.location=$OPENBMP_KAFKA_SSL_CERTIFICATE_LOCATION"
     [[ -n "$OPENBMP_KAFKA_SSL_KEY_LOCATION" ]] && KAFKA_OPTS+=" -X ssl.key.location=$OPENBMP_KAFKA_SSL_KEY_LOCATION"
     [[ -n "$OPENBMP_KAFKA_SSL_CA_LOCATION" ]] && KAFKA_OPTS+=" -X ssl.ca.location=$OPENBMP_KAFKA_SSL_CA_LOCATION"
@@ -20,8 +20,9 @@ while ! kcat $KAFKA_OPTS -u -b "$OPENBMP_KAFKA_BROKERS" -L | grep -q broker; do
         echo "$(cat <<EOF
 ERROR: Kafka did not start within ${STARTUP_TIMEOUT}s.
        Ensure Kafka is reachable at ${OPENBMP_KAFKA_BROKERS}, and
-       if using SSL, enable KAFKA_SSL and set KAFKA_SSL_CA to a
-       valid CA certificate path.
+       if using SSL, set OPENBMP_KAFKA_SSL_ENABLED=true and set
+       KAFKA_SSL_CA_LOCATION to a valid CA certificate path.
+
        Check the Kafka logs for more detailed information.
 EOF
 )"

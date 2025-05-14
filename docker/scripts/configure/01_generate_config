@@ -5,7 +5,7 @@ set -e
 OPENBMP_CONFIG_FILE="/config/obmp-psql.yml"
 
 # collector base configuration
-BASE_DEFAULTS='
+BASE_DEFAULTS='---
 base:
   stats_inverval: 60
   consumer_threads: 8
@@ -108,16 +108,24 @@ if [ -n "$OPENBMP_QUEUE_SIZE" ]; then
 fi
 
 # Postgres settings
+
 if [ -n "$OPENBMP_POSTGRES_DB" ]; then
   FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.db_name = \"$OPENBMP_POSTGRES_DB\"" -)
 fi
 
-if [ -n "$OPENBMP_POSTGRES_HOST" ]; then
-  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.host = \"$OPENBMP_POSTGRES_HOST\"" -)
-fi
+if [ -n "$OPENBMP_POSTGRES_HOST" ] || [ -n "$OPENBMP_POSTGRES_PORT" ]; then
+  # might already be set
+  EXISTING_HOSTPORT=$(echo "$FINAL_CONFIG" | yq eval -r '.postgres.host // ""')
 
-if [ -n "$OPENBMP_POSTGRES_PORT" ]; then
-  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.host = \"$OPENBMP_POSTGRES_HOST:$OPENBMP_POSTGRES_PORT\"" -)
+  # split on :
+  EXISTING_HOST="${EXISTING_HOSTPORT%%:*}"
+  EXISTING_PORT="${EXISTING_HOSTPORT#*:}"
+  [ "$EXISTING_HOST" = "$EXISTING_PORT" ] && EXISTING_PORT=""
+
+  FINAL_HOST="${OPENBMP_POSTGRES_HOST:-${EXISTING_HOST:-localhost}}"
+  FINAL_PORT="${OPENBMP_POSTGRES_PORT:-${EXISTING_PORT:-5432}}"
+
+  FINAL_CONFIG=$(echo "$FINAL_CONFIG" | yq eval ".postgres.host = \"$FINAL_HOST:$FINAL_PORT\"" -)
 fi
 
 if [ -n "$OPENBMP_POSTGRES_USERNAME" ]; then
@@ -233,13 +241,13 @@ echo "$FINAL_CONFIG" > "$OPENBMP_CONFIG_FILE"
 echo "===> OpenBMP configuration generated at $OPENBMP_CONFIG_FILE"
 
 echo "===> Exporting required environment variables"
-export OPENBMP_POSTGRES_DB=$(echo "$FINAL_CONFIG" | yq eval '.postgres.db_name' -)
-export OPENBMP_POSTGRES_HOST=$(echo "$FINAL_CONFIG" | yq eval '.postgres.host' -)
-export OPENBMP_POSTGRES_PORT=$(echo "$FINAL_CONFIG" | yq eval '.postgres.host' - | cut -d':' -f2)
-export OPENBMP_POSTGRES_USERNAME=$(echo "$FINAL_CONFIG" | yq eval '.postgres.username' -)
-export OPENBMP_POSTGRES_PASSWORD=$(echo "$FINAL_CONFIG" | yq eval '.postgres.password' -)
-export OPENBMP_KAFKA_BROKERS=$(echo "$FINAL_CONFIG" | yq eval '.kafka.consumer_config."bootstrap.servers"' -)
-export OPENBMP_KAFKA_SECURITY_PROTOCOL=$(echo "$FINAL_CONFIG" | yq eval '.kafka.consumer_config."security.protocol"' -)
+export OPENBMP_POSTGRES_DB=$(echo "$FINAL_CONFIG" | yq eval -r '.postgres.db_name' -)
+export OPENBMP_POSTGRES_HOST=$(echo "$FINAL_CONFIG" | yq eval -r '.postgres.host' - | cut -d':' -f1)
+export OPENBMP_POSTGRES_PORT=$(echo "$FINAL_CONFIG" | yq eval -r '.postgres.host' - | cut -d':' -f2)
+export OPENBMP_POSTGRES_USERNAME=$(echo "$FINAL_CONFIG" | yq eval -r '.postgres.username' -)
+export OPENBMP_POSTGRES_PASSWORD=$(echo "$FINAL_CONFIG" | yq eval -r '.postgres.password' -)
+export OPENBMP_KAFKA_BROKERS=$(echo "$FINAL_CONFIG" | yq eval -r '.kafka.consumer_config."bootstrap.servers"' -)
+export OPENBMP_KAFKA_SECURITY_PROTOCOL=$(echo "$FINAL_CONFIG" | yq eval -r '.kafka.consumer_config."security.protocol"' -)
 if [ "$OPENBMP_KAFKA_SECURITY_PROTOCOL" == "SSL" ]; then
   export OPENBMP_KAFKA_SSL_ENABLED=true
 fi
